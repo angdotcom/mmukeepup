@@ -311,7 +311,6 @@ export default function App() {
     const isCurrentlyFollowing = followedClubIds.includes(club.id);
     if (isCurrentlyFollowing) {
       setFollowedClubIds(followedClubIds.filter(id => id !== club.id));
-      // Add notification for unfollow
       const newNotif: NotificationItem = {
         id: 'notif-' + Date.now(),
         title: 'Unfollowed Club',
@@ -323,7 +322,6 @@ export default function App() {
       setNotifications([newNotif, ...notifications]);
     } else {
       setFollowedClubIds([...followedClubIds, club.id]);
-      // Add notification for follow
       const newNotif: NotificationItem = {
         id: 'notif-' + Date.now(),
         title: 'New Following',
@@ -451,7 +449,6 @@ export default function App() {
 
       setPosts([newPostObj, ...posts]);
 
-      // If author is a club or if currentUser is a club being followed, add notification for followers
       const matchedClub = REGISTERED_CLUBS.find(c => c.name === currentUser.name);
       if (matchedClub && followedClubIds.includes(matchedClub.id)) {
         const followNotif: NotificationItem = {
@@ -835,6 +832,21 @@ export default function App() {
                     </div>
 
                     <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{post.content}</p>
+
+                    {/* RENDER POST PICTURES / MEDIA ATTACHMENTS (FIX) */}
+                    {post.mediaUrls && post.mediaUrls.length > 0 && (
+                      <div className={`mt-4 grid gap-2 ${post.mediaUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        {post.mediaUrls.map((url, idx) => (
+                          <img 
+                            key={idx} 
+                            src={url} 
+                            alt="post attachment" 
+                            className="rounded-xl w-full h-64 object-cover border border-gray-100 shadow-sm" 
+                            referrerPolicy="no-referrer"
+                          />
+                        ))}
+                      </div>
+                    )}
 
                     {post.eventDetails && (
                       <div className="bg-[#ebeaff]/60 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
