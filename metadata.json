@@ -1,0 +1,6 @@
+{
+  "name": "MMU KEEP UP",
+  "description": "The premier social media and announcement platform for Multimedia University (MMU) Cyberjaya and Melaka students, lecturers, and club committees.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
