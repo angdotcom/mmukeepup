@@ -79,6 +79,62 @@ interface NotificationItem {
   type: 'follow' | 'new_post' | 'event';
 }
 
+const parseEventFromPost = (post: Post): CampusEvent | null => {
+  if (post.eventDetails && post.eventDetails.eventTitle) {
+    return {
+      id: 'evt-parsed-' + post.id,
+      title: post.eventDetails.eventTitle,
+      date: post.eventDetails.eventDate || 'TBA',
+      time: post.eventDetails.time || 'All Day',
+      venue: post.eventDetails.venue || 'MMU Campus',
+      campus: post.campus === 'Both' ? 'Cyberjaya' : post.campus,
+      clubName: post.authorName
+    };
+  }
+
+  const content = post.content || '';
+  const lowerContent = content.toLowerCase();
+
+  const dateRegex1 = /\b\d{2}\/\d{2}\/\d{4}\b/;
+  const dateRegex2 = /\b\d{4}-\d{2}-\d{2}\b/;
+  const hasDateFormat = dateRegex1.test(content) || dateRegex2.test(content);
+  const hasKeywords = lowerContent.includes('date:') || lowerContent.includes('venue:') || lowerContent.includes('time:');
+
+  if (hasDateFormat || hasKeywords) {
+    let extractedDate = 'TBA';
+    const matchDate1 = content.match(dateRegex1);
+    const matchDate2 = content.match(dateRegex2);
+    if (matchDate1) extractedDate = matchDate1[0];
+    else if (matchDate2) extractedDate = matchDate2[0];
+    else {
+      const dateLineMatch = content.match(/date\s*[:\-]\s*([^\n,]+)/i);
+      if (dateLineMatch) extractedDate = dateLineMatch[1].trim();
+    }
+
+    let extractedVenue = 'MMU Campus';
+    const venueMatch = content.match(/venue\s*[:\-]\s*([^\n,]+)/i);
+    if (venueMatch) extractedVenue = venueMatch[1].trim();
+
+    let extractedTime = 'All Day';
+    const timeMatch = content.match(/time\s*[:\-]\s*([^\n,]+)/i);
+    if (timeMatch) extractedTime = timeMatch[1].trim();
+
+    const title = post.content.split('\n')[0].slice(0, 50) || 'Campus Event';
+
+    return {
+      id: 'evt-parsed-' + post.id,
+      title: title,
+      date: extractedDate,
+      time: extractedTime,
+      venue: extractedVenue,
+      campus: post.campus === 'Both' ? 'Cyberjaya' : post.campus,
+      clubName: post.authorName
+    };
+  }
+
+  return null;
+};
+
 const REGISTERED_CLUBS: ClubAccount[] = [
   {
     id: 'club-1',
@@ -418,105 +474,6 @@ export default function App() {
 
   const followedClubs = allClubs.filter(c => followedClubIds.includes(c.id));
   const exploreClubs = allClubs.filter(c => !followedClubIds.includes(c.id));
-
-  const parseEventDetails = (post: Post) => {
-    if (post.eventDetails) return post.eventDetails;
-
-    const content = post.content || '';
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-
-    let extractedTitle = '';
-    let extractedDate = '';
-    let extractedVenue = '';
-    let extractedTime = '';
-
-    for (const line of lines) {
-      const lower = line.toLowerCase();
-      if (lower.startsWith('date:') || lower.startsWith('date')) {
-        const val = line.replace(/^(date:?)\s*/i, '').trim();
-        if (val) extractedDate = val;
-      } else if (lower.startsWith('venue:') || lower.startsWith('location:') || lower.startsWith('venue') || lower.startsWith('location')) {
-        const val = line.replace(/^(venue:|location:?)\s*/i, '').trim();
-        if (val) extractedVenue = val;
-      } else if (lower.startsWith('time:') || lower.startsWith('time')) {
-        const val = line.replace(/^(time:?)\s*/i, '').trim();
-        if (val) extractedTime = val;
-      } else if (!extractedTitle && !lower.startsWith('date') && !lower.startsWith('venue') && !lower.startsWith('location') && !lower.startsWith('time')) {
-        extractedTitle = line;
-      }
-    }
-
-    if (!extractedDate) {
-      const dateMatch = content.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{4}-\d{2}-\d{2})|([A-Za-z]+ \d{1,2},? \d{4})/);
-      if (dateMatch) extractedDate = dateMatch[0];
-    }
-    if (!extractedVenue) {
-      const venueMatch = content.match(/(venue|location|at):?\s*([^\.,\n]+)/i);
-      if (venueMatch && venueMatch[2] && !venueMatch[2].toLowerCase().includes('28/')) {
-        extractedVenue = venueMatch[2].trim();
-      } else {
-        extractedVenue = 'Main Hall';
-      }
-    }
-    if (!extractedTime) {
-      const timeMatch = content.match(/(time|at):?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s*-\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)/i);
-      if (timeMatch && timeMatch[2]) {
-        extractedTime = timeMatch[2].trim();
-      } else {
-        extractedTime = '8:00 PM';
-      }
-    }
-
-    const hasEventIndicators = 
-      extractedDate || 
-      extractedVenue || 
-      extractedTime || 
-      content.toLowerCase().includes('event') || 
-      content.toLowerCase().includes('workshop') ||
-      content.toLowerCase().includes('hackathon') ||
-      content.toLowerCase().includes('carnival') ||
-      post.authorRole === 'club' || 
-      post.category === 'Clubs & Events';
-
-    if (hasEventIndicators) {
-      return {
-        eventTitle: extractedTitle || post.authorName + ' Event',
-        eventDate: extractedDate || 'Upcoming',
-        venue: extractedVenue || 'Main Hall',
-        time: extractedTime || '8:00 PM'
-      };
-    }
-
-    return null;
-  };
-
-  const getFullCalendarEvents = () => {
-    const map = new Map<string, CampusEvent>();
-    
-    savedEvents.forEach(e => {
-      map.set(e.title.toLowerCase(), e);
-    });
-
-    posts.forEach(p => {
-      const parsed = parseEventDetails(p);
-      if (parsed) {
-        const key = parsed.eventTitle.toLowerCase();
-        if (!map.has(key)) {
-          map.set(key, {
-            id: 'parsed-' + p.id,
-            title: parsed.eventTitle,
-            date: parsed.eventDate,
-            time: parsed.time,
-            venue: parsed.venue,
-            campus: p.campus === 'Both' ? 'Cyberjaya' : p.campus,
-            clubName: p.authorName
-          });
-        }
-      }
-    });
-
-    return Array.from(map.values());
-  };
 
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1315,15 +1272,15 @@ export default function App() {
                       </a>
                     )}
 
-                    {(post.eventDetails || parseEventDetails(post)) && (
+                    {post.eventDetails && (
                       <div className="bg-[#ebeaff]/60 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-[#3d3bf3] uppercase">Event Alert</div>
-                          <h5 className="text-sm font-bold text-slate-900">{(post.eventDetails || parseEventDetails(post))?.eventTitle}</h5>
-                          <p className="text-xs text-slate-600">{(post.eventDetails || parseEventDetails(post))?.eventDate} · {(post.eventDetails || parseEventDetails(post))?.venue}</p>
+                          <h5 className="text-sm font-bold text-slate-900">{post.eventDetails.eventTitle}</h5>
+                          <p className="text-xs text-slate-600">{post.eventDetails.eventDate} · {post.eventDetails.venue}</p>
                         </div>
                         <button 
-                          onClick={() => handleSyncEvent((post.eventDetails || parseEventDetails(post))!, post.authorName, post.campus)}
+                          onClick={() => handleSyncEvent(post.eventDetails!, post.authorName, post.campus)}
                           className="px-3.5 py-2 bg-[#3d3bf3] text-white text-xs font-semibold rounded-xl hover:bg-indigo-700"
                         >
                           Sync to Calendar
@@ -1611,19 +1568,19 @@ export default function App() {
                       )}
 
                       {/* Event Details Card (if applicable) */}
-                      {(post.eventDetails || parseEventDetails(post)) && (
+                      {post.eventDetails && (
                         <div className="bg-[#ebeaff]/60 border border-indigo-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                           <div className="space-y-1">
                             <div className="text-xs font-bold text-[#3d3bf3] uppercase tracking-wide">Campus Event Alert</div>
-                            <h4 className="text-sm font-extrabold text-slate-900">{(post.eventDetails || parseEventDetails(post))?.eventTitle}</h4>
+                            <h4 className="text-sm font-extrabold text-slate-900">{post.eventDetails.eventTitle}</h4>
                             <div className="text-xs text-slate-600 flex flex-wrap gap-3">
-                              <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-indigo-600" />{(post.eventDetails || parseEventDetails(post))?.eventDate}</span>
-                              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-indigo-600" />{(post.eventDetails || parseEventDetails(post))?.time}</span>
-                              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-indigo-600" />{(post.eventDetails || parseEventDetails(post))?.venue}</span>
+                              <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-indigo-600" />{post.eventDetails.eventDate}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-indigo-600" />{post.eventDetails.time}</span>
+                              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-indigo-600" />{post.eventDetails.venue}</span>
                             </div>
                           </div>
                           <button 
-                            onClick={() => handleSyncEvent((post.eventDetails || parseEventDetails(post))!, post.authorName, post.campus)}
+                            onClick={() => handleSyncEvent(post.eventDetails!, post.authorName, post.campus)}
                             className="px-4 py-2 bg-[#3d3bf3] hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors whitespace-nowrap flex items-center gap-1.5 shrink-0"
                           >
                             <Calendar className="w-3.5 h-3.5" />
@@ -1704,50 +1661,62 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'calendar' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Campus Event Calendar</h1>
-                <p className="text-xs text-slate-500 mt-0.5">All official club activities, hackathons, exams, and workshops synced across MMU.</p>
-              </div>
-              <div className="text-xs font-semibold bg-indigo-50 text-[#3d3bf3] px-3 py-1.5 rounded-xl border border-indigo-200">
-                {getFullCalendarEvents().length} Total Events
-              </div>
-            </div>
+        {activeTab === 'calendar' && (() => {
+          const calendarEventsMap = new Map<string, CampusEvent>();
+          savedEvents.forEach(e => calendarEventsMap.set(e.title.toLowerCase(), e));
+          posts.forEach(post => {
+            const parsed = parseEventFromPost(post);
+            if (parsed && !calendarEventsMap.has(parsed.title.toLowerCase())) {
+              calendarEventsMap.set(parsed.title.toLowerCase(), parsed);
+            }
+          });
+          const displayEvents = Array.from(calendarEventsMap.values());
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {getFullCalendarEvents().map(evt => (
-                <div key={evt.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs bg-[#ebeaff] text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
-                      MMU {evt.campus}
-                    </span>
-                    <span className="text-xs text-slate-400 font-mono">Verified Event</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">{evt.title}</h3>
-                    <p className="text-xs text-indigo-600 font-medium mt-1">{evt.clubName}</p>
-                  </div>
-                  <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-[#3d3bf3]" />
-                      <span>{evt.date}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-[#3d3bf3]" />
-                      <span>{evt.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-[#3d3bf3]" />
-                      <span>{evt.venue}</span>
-                    </div>
-                  </div>
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Campus Event Calendar</h1>
+                  <p className="text-xs text-slate-500 mt-0.5">All official club activities, hackathons, exams, and workshops synced across MMU.</p>
                 </div>
-              ))}
+                <div className="text-xs font-semibold bg-indigo-50 text-[#3d3bf3] px-3 py-1.5 rounded-xl border border-indigo-200">
+                  {displayEvents.length} Events
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {displayEvents.map(evt => (
+                  <div key={evt.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs bg-[#ebeaff] text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
+                        MMU {evt.campus}
+                      </span>
+                      <span className="text-xs text-slate-400 font-mono">Verified Event</span>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">{evt.title}</h3>
+                      <p className="text-xs text-indigo-600 font-medium mt-1">{evt.clubName}</p>
+                    </div>
+                    <div className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-[#3d3bf3]" />
+                        <span>{evt.date}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-[#3d3bf3]" />
+                        <span>{evt.time}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#3d3bf3]" />
+                        <span>{evt.venue}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {activeTab === 'clubs' && (
           <div className="space-y-6">
