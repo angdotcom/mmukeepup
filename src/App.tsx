@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Bell, Search, Plus, Calendar, MessageSquare, Heart, Bookmark, Share2, 
   ShieldCheck, User, Sparkles, MapPin, Building2, BookOpen, Send, CheckCircle, 
-  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X, ArrowRight, ArrowLeft, Link as LinkIcon
+  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X, ArrowRight, ArrowLeft, Link as LinkIcon, Eye, EyeOff
 } from 'lucide-react';
 
 type UserRole = 'student' | 'lecturer' | 'club' | 'outsider';
@@ -11,6 +11,7 @@ interface UserProfile {
   id: string;
   name: string;
   handle: string;
+  email: string;
   role: UserRole;
   avatar: string;
   verified: boolean;
@@ -202,20 +203,18 @@ const INITIAL_POSTS: Post[] = [
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('mmu_keep_up_user');
-    return saved ? JSON.parse(saved) : {
-      id: 'usr_default',
-      name: 'Ahmad Zikri',
-      handle: '@ahmad_zikri',
-      role: 'student',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
-      verified: true
-    };
+    return saved ? JSON.parse(saved) : null;
   });
 
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [selectedRoleForReg, setSelectedRoleForReg] = useState<UserRole>('student');
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(!currentUser);
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
   const [regName, setRegName] = useState('');
+  const [regHandle, setRegHandle] = useState('');
   const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [selectedRoleForReg, setSelectedRoleForReg] = useState<UserRole>('student');
+  const [authError, setAuthError] = useState('');
 
   const [activeTab, setActiveTab] = useState<'feed' | 'calendar' | 'clubs' | 'ai-assistant' | 'club-detail'>('feed');
   const [selectedClub, setSelectedClub] = useState<ClubAccount | null>(null);
@@ -282,22 +281,60 @@ export default function App() {
   const followedClubs = REGISTERED_CLUBS.filter(c => followedClubIds.includes(c.id));
   const exploreClubs = REGISTERED_CLUBS.filter(c => !followedClubIds.includes(c.id));
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName.trim()) return;
+    setAuthError('');
 
-    const newUser: UserProfile = {
-      id: 'usr_' + Date.now(),
-      name: regName,
-      handle: '@' + regName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-      role: selectedRoleForReg,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${regName}`,
-      verified: selectedRoleForReg === 'club' || selectedRoleForReg === 'lecturer' || selectedRoleForReg === 'student',
-    };
+    if (!regEmail.trim() || !regPassword.trim()) {
+      setAuthError('Please fill in all required fields.');
+      return;
+    }
 
-    setCurrentUser(newUser);
-    localStorage.setItem('mmu_keep_up_user', JSON.stringify(newUser));
-    setShowAuthModal(false);
+    if (authMode === 'signup') {
+      if (!regName.trim() || !regHandle.trim()) {
+        setAuthError('Please provide a name and unique handle.');
+        return;
+      }
+      const formattedHandle = regHandle.startsWith('@') ? regHandle : '@' + regHandle.replace(/[^a-z0-9_]/g, '_');
+      const newUser: UserProfile = {
+        id: 'usr_' + Date.now(),
+        name: regName,
+        handle: formattedHandle,
+        email: regEmail,
+        role: selectedRoleForReg,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${regName}`,
+        verified: selectedRoleForReg === 'club' || selectedRoleForReg === 'lecturer' || selectedRoleForReg === 'student',
+      };
+
+      setCurrentUser(newUser);
+      localStorage.setItem('mmu_keep_up_user', JSON.stringify(newUser));
+      setShowAuthModal(false);
+    } else {
+      // Login mode
+      const savedUserStr = localStorage.getItem('mmu_keep_up_user');
+      if (savedUserStr) {
+        const savedUser = JSON.parse(savedUserStr);
+        if (savedUser.email === regEmail || savedUser.handle === regEmail) {
+          setCurrentUser(savedUser);
+          setShowAuthModal(false);
+          return;
+        }
+      }
+
+      // Fallback instant login
+      const fallbackUser: UserProfile = {
+        id: 'usr_' + Date.now(),
+        name: regEmail.split('@')[0],
+        handle: '@' + regEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+        email: regEmail,
+        role: 'student',
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${regEmail}`,
+        verified: true
+      };
+      setCurrentUser(fallbackUser);
+      localStorage.setItem('mmu_keep_up_user', JSON.stringify(fallbackUser));
+      setShowAuthModal(false);
+    }
   };
 
   const handleLogout = () => {
@@ -543,89 +580,137 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#ebeaff] text-slate-900 flex flex-col font-sans">
       
-      {/* AUTHENTICATION MODAL */}
+      {/* MANDATORY AUTHENTICATION / REGISTRATION MODAL */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl border border-[#9694ff]/30 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-[#9694ff]/30 animate-in fade-in zoom-in duration-200">
             <div className="text-center mb-6">
               <span className="bg-[#ebeaff] text-[#3d3bf3] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                MMU KEEP UP SIGN IN
+                MMU KEEP UP
               </span>
-              <h2 className="text-2xl font-black text-gray-900 mt-2">Get Started in Seconds</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Choose your account type and join the campus feed instantly.
+              <h2 className="text-2xl font-black text-gray-900 mt-2">
+                {authMode === 'signup' ? 'Create Your Account' : 'Welcome Back'}
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                {authMode === 'signup' ? 'Join the official Multimedia University campus network.' : 'Log in with your credentials to access the feed.'}
               </p>
             </div>
 
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Select Account Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { role: 'student', label: '🎓 MMU Student', desc: 'Standard feed & threads' },
-                    { role: 'club', label: '🏆 Club / Society', desc: 'Announcements & 10 images' },
-                    { role: 'lecturer', label: '📚 Lecturer', desc: 'Verified faculty broadcast' },
-                    { role: 'outsider', label: '🌐 Guest / Outsider', desc: 'Read-only view' },
-                  ].map((item) => (
-                    <button
-                      type="button"
-                      key={item.role}
-                      onClick={() => setSelectedRoleForReg(item.role as UserRole)}
-                      className={`p-3 text-left rounded-xl border transition-all ${
-                        selectedRoleForReg === item.role
-                          ? 'border-[#3d3bf3] bg-[#ebeaff]/60 shadow-sm ring-1 ring-[#3d3bf3]'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <p className="text-sm font-bold text-gray-900">{item.label}</p>
-                      <p className="text-[10px] text-gray-500 mt-0.5">{item.desc}</p>
-                    </button>
-                  ))}
-                </div>
+            {authError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold">
+                {authError}
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  {selectedRoleForReg === 'club' ? 'Club / Society Name' : 'Full Name'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={selectedRoleForReg === 'club' ? 'e.g., Cyberjaya IT Society' : 'e.g., Ahmad Zikri'}
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-sm"
-                />
-              </div>
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              
+              {authMode === 'signup' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Account Role</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { role: 'student', label: '🎓 Student' },
+                        { role: 'club', label: '🏆 Club' },
+                        { role: 'lecturer', label: '📚 Lecturer' },
+                        { role: 'outsider', label: '🌐 Guest' },
+                      ].map((item) => (
+                        <button
+                          type="button"
+                          key={item.role}
+                          onClick={() => setSelectedRoleForReg(item.role as UserRole)}
+                          className={`p-2.5 text-center rounded-xl border text-xs font-bold transition-all ${
+                            selectedRoleForReg === item.role
+                              ? 'border-[#3d3bf3] bg-[#ebeaff] text-[#3d3bf3] shadow-sm'
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Full Name / Display Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Angeline Leong"
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Unique Username / Handle</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. @angeline_l"
+                      value={regHandle}
+                      onChange={(e) => setRegHandle(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-xs font-mono"
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Email Address</label>
                 <input
                   type="email"
                   required
-                  placeholder={selectedRoleForReg === 'club' ? 'club.it@mmu.edu.my' : 'username@student.mmu.edu.my'}
+                  placeholder="username@student.mmu.edu.my"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-sm"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-xs"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter secure password"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 pr-10 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 bg-[#3d3bf3] text-white font-bold rounded-xl shadow-lg hover:bg-[#3d3bf3]/90 transition-all flex items-center justify-center gap-2 mt-2"
+                className="w-full py-3 bg-[#3d3bf3] text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-2 text-xs uppercase tracking-wider"
               >
-                Continue to Feed <ArrowRight className="w-4 h-4" />
+                {authMode === 'signup' ? 'Create Account' : 'Log In'} <ArrowRight className="w-4 h-4" />
               </button>
             </form>
 
-            {currentUser && (
+            <div className="text-center mt-5 pt-4 border-t border-slate-100">
               <button
-                onClick={() => setShowAuthModal(false)}
-                className="mt-3 w-full py-2 text-gray-500 hover:text-gray-800 text-xs font-semibold"
+                onClick={() => {
+                  setAuthMode(authMode === 'signup' ? 'login' : 'signup');
+                  setAuthError('');
+                }}
+                className="text-xs text-slate-600 hover:text-[#3d3bf3] font-semibold"
               >
-                Cancel & Close
+                {authMode === 'signup' 
+                  ? 'Already have an account? Log in' 
+                  : "New to MMU Keep Up? Register"}
               </button>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -740,7 +825,7 @@ export default function App() {
                 onClick={handleLogout}
                 className="ml-2 text-xs text-red-600 font-bold hover:underline"
               >
-                Switch
+                Log Out
               </button>
             </div>
           ) : (
