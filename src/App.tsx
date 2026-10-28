@@ -787,21 +787,37 @@ export default function App() {
               >
                 {authMode === 'signup' ? 'Create & Save Account' : 'Log In'} <ArrowRight className="w-4 h-4" />
               </button>
-            </form>
 
-            <div className="text-center mt-5 pt-4 border-t border-slate-100">
-              <button
-                onClick={() => {
-                  setAuthMode(authMode === 'signup' ? 'login' : 'signup');
-                  setAuthError('');
-                }}
-                className="text-xs text-slate-600 hover:text-[#3d3bf3] font-semibold"
-              >
-                {authMode === 'signup' 
-                  ? 'Already have an account? Log in' 
-                  : "New to MMU Keep Up? Register"}
-              </button>
-            </div>
+              {authMode === 'login' && (
+                <div className="mt-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setAuthError('');
+                    }}
+                    className="w-full py-2.5 bg-indigo-50 text-[#3d3bf3] font-bold rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-all text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> New to MMU Keep Up? Create a New Account
+                  </button>
+                </div>
+              )}
+
+              {authMode === 'signup' && (
+                <div className="mt-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthError('');
+                    }}
+                    className="text-xs text-slate-600 hover:text-[#3d3bf3] font-semibold"
+                  >
+                    Already have an account? Log in
+                  </button>
+                </div>
+              )}
+            </form>
           </div>
         </div>
       )}
