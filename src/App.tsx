@@ -279,6 +279,9 @@ export default function App() {
   // Comment input state per post
   const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
 
+  const followedClubs = REGISTERED_CLUBS.filter(c => followedClubIds.includes(c.id));
+  const exploreClubs = REGISTERED_CLUBS.filter(c => !followedClubIds.includes(c.id));
+
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim()) return;
@@ -888,19 +891,20 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            {/* LEFT SIDEBAR: Campus Clubs & Societies with Follow Toggles */}
+            {/* LEFT SIDEBAR: Separated Following Clubs & Explore Clubs Sections */}
             <div className="lg:col-span-3 space-y-6">
               
-              {/* Campus Clubs & Societies Sidebar Section */}
+              {/* Following Clubs Section */}
               <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Campus Clubs & Societies</h3>
-                  <span className="text-[10px] bg-[#3d3bf3] text-white px-2 py-0.5 rounded-full font-bold">{REGISTERED_CLUBS.length}</span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Following Clubs</h3>
+                  <span className="text-[10px] bg-[#3d3bf3] text-white px-2 py-0.5 rounded-full font-bold">{followedClubs.length}</span>
                 </div>
-                <div className="space-y-3">
-                  {REGISTERED_CLUBS.map(club => {
-                    const isFollowing = followedClubIds.includes(club.id);
-                    return (
+                {followedClubs.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic py-2">You aren't following any clubs yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {followedClubs.map(club => (
                       <div key={club.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-all space-y-2.5">
                         <div className="flex items-start justify-between gap-2">
                           <div 
@@ -930,19 +934,66 @@ export default function App() {
                           </span>
                           <button 
                             onClick={() => toggleFollowClub(club)}
-                            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                              isFollowing 
-                                ? 'bg-indigo-50 text-[#3d3bf3] border border-indigo-200' 
-                                : 'bg-[#3d3bf3] text-white hover:bg-indigo-700 shadow-sm'
-                            }`}
+                            className="px-3 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 text-[#3d3bf3] border border-indigo-200 hover:bg-indigo-100 transition-all"
                           >
-                            {isFollowing ? 'Following' : 'Follow'}
+                            Following
                           </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Explore Clubs Section */}
+              <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Explore Clubs</h3>
+                  <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-bold">{exploreClubs.length}</span>
                 </div>
+                {exploreClubs.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic py-2">You are following all available clubs!</p>
+                ) : (
+                  <div className="space-y-3">
+                    {exploreClubs.map(club => (
+                      <div key={club.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-all space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div 
+                            onClick={() => handleClubClick(club)}
+                            className="flex items-center gap-2.5 cursor-pointer group"
+                          >
+                            <div className="w-9 h-9 rounded-xl bg-white border border-indigo-200 flex items-center justify-center text-lg shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                              {club.avatar}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-900 group-hover:text-[#3d3bf3] transition-colors flex items-center gap-1">
+                                {club.name}
+                                <CheckCircle className="w-3 h-3 text-[#3d3bf3] shrink-0" />
+                              </h4>
+                              <p className="text-[11px] text-slate-400">{club.handle}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+                          {club.bio}
+                        </p>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {club.followersCount.toLocaleString()} followers
+                          </span>
+                          <button 
+                            onClick={() => toggleFollowClub(club)}
+                            className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[#3d3bf3] text-white hover:bg-indigo-700 shadow-sm transition-all"
+                          >
+                            Follow
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Campus Filter */}
@@ -1258,56 +1309,128 @@ export default function App() {
               <p className="text-xs text-slate-500 mt-0.5">Explore official student organizations, leadership contacts, and membership portals.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {REGISTERED_CLUBS.map((club) => {
-                const isFollowing = followedClubIds.includes(club.id);
-                return (
-                  <div key={club.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs bg-indigo-50 text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
-                        MMU {club.campus}
-                      </span>
-                      <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
-                        <Users className="w-3.5 h-3.5" />
-                        {club.followersCount.toLocaleString()} followers
-                      </span>
-                    </div>
-                    <div 
-                      onClick={() => handleClubClick(club)}
-                      className="cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-[#ebeaff] flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
-                          {club.avatar}
-                        </div>
-                        <div>
-                          <h3 className="text-base font-bold text-slate-900 group-hover:text-[#3d3bf3] transition-colors flex items-center gap-1.5">
-                            {club.name}
-                            <CheckCircle className="w-4 h-4 text-[#3d3bf3]" />
-                          </h3>
-                          <p className="text-xs text-slate-400">{club.handle}</p>
-                        </div>
+            {/* Following Clubs Section in Directory */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Following Clubs</h3>
+                <span className="text-xs bg-[#3d3bf3] text-white px-2 py-0.5 rounded-full font-bold">{followedClubs.length}</span>
+              </div>
+              {followedClubs.length === 0 ? (
+                <div className="bg-white rounded-2xl p-6 text-center border border-indigo-100 text-xs text-slate-400 italic">
+                  You aren't following any clubs yet. Explore and follow clubs below!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {followedClubs.map((club) => (
+                    <div key={club.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs bg-indigo-50 text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
+                          MMU {club.campus}
+                        </span>
+                        <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
+                          <Users className="w-3.5 h-3.5" />
+                          {club.followersCount.toLocaleString()} followers
+                        </span>
                       </div>
-                      <p className="text-xs text-slate-600 mt-3 leading-relaxed">{club.bio}</p>
-                    </div>
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <button 
+                      <div 
                         onClick={() => handleClubClick(club)}
-                        className="text-xs font-semibold text-[#3d3bf3] hover:underline"
+                        className="cursor-pointer group"
                       >
-                        View Profile & Feed
-                      </button>
-                      <button 
-                        onClick={() => toggleFollowClub(club)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${isFollowing ? 'bg-indigo-50 text-[#3d3bf3] border border-indigo-200' : 'bg-[#3d3bf3] text-white hover:bg-indigo-700'}`}
-                      >
-                        {isFollowing ? 'Following' : 'Follow Club'}
-                      </button>
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-[#ebeaff] flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
+                            {club.avatar}
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-slate-900 group-hover:text-[#3d3bf3] transition-colors flex items-center gap-1.5">
+                              {club.name}
+                              <CheckCircle className="w-4 h-4 text-[#3d3bf3]" />
+                            </h3>
+                            <p className="text-xs text-slate-400">{club.handle}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-3 leading-relaxed">{club.bio}</p>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <button 
+                          onClick={() => handleClubClick(club)}
+                          className="text-xs font-semibold text-[#3d3bf3] hover:underline"
+                        >
+                          View Profile & Feed
+                        </button>
+                        <button 
+                          onClick={() => toggleFollowClub(club)}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-[#3d3bf3] border border-indigo-200 hover:bg-indigo-100 transition-colors"
+                        >
+                          Following
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Explore Clubs Section in Directory */}
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Explore Clubs</h3>
+                <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">{exploreClubs.length}</span>
+              </div>
+              {exploreClubs.length === 0 ? (
+                <div className="bg-white rounded-2xl p-6 text-center border border-indigo-100 text-xs text-slate-400 italic">
+                  You are following all available clubs!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {exploreClubs.map((club) => (
+                    <div key={club.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs bg-indigo-50 text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
+                          MMU {club.campus}
+                        </span>
+                        <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
+                          <Users className="w-3.5 h-3.5" />
+                          {club.followersCount.toLocaleString()} followers
+                        </span>
+                      </div>
+                      <div 
+                        onClick={() => handleClubClick(club)}
+                        className="cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-[#ebeaff] flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
+                            {club.avatar}
+                          </div>
+                          <div>
+                            <h3 className="text-base font-bold text-slate-900 group-hover:text-[#3d3bf3] transition-colors flex items-center gap-1.5">
+                              {club.name}
+                              <CheckCircle className="w-4 h-4 text-[#3d3bf3]" />
+                            </h3>
+                            <p className="text-xs text-slate-400">{club.handle}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-3 leading-relaxed">{club.bio}</p>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <button 
+                          onClick={() => handleClubClick(club)}
+                          className="text-xs font-semibold text-[#3d3bf3] hover:underline"
+                        >
+                          View Profile & Feed
+                        </button>
+                        <button 
+                          onClick={() => toggleFollowClub(club)}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#3d3bf3] text-white hover:bg-indigo-700 transition-colors"
+                        >
+                          Follow Club
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
@@ -1409,7 +1532,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 1. Photo Upload / Image URL Input (at top) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Media Image / Photo (Optional)</label>
                 <input 
@@ -1421,7 +1543,6 @@ export default function App() {
                 />
               </div>
 
-              {/* 2. Post Content / Description Textarea (middle) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Post Content / Description</label>
                 <textarea 
@@ -1433,7 +1554,6 @@ export default function App() {
                 />
               </div>
 
-              {/* 3. URL Link Input (bottom) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">External Reference URL (Optional)</label>
                 <input 
