@@ -419,6 +419,83 @@ export default function App() {
   const followedClubs = allClubs.filter(c => followedClubIds.includes(c.id));
   const exploreClubs = allClubs.filter(c => !followedClubIds.includes(c.id));
 
+  const parseEventDetails = (post: Post) => {
+    if (post.eventDetails) return post.eventDetails;
+
+    const content = post.content || '';
+    const lowerContent = content.toLowerCase();
+
+    const hasEventIndicators = 
+      lowerContent.includes('date') || 
+      lowerContent.includes('venue') || 
+      lowerContent.includes('time') || 
+      lowerContent.includes('event') || 
+      lowerContent.includes('workshop') ||
+      lowerContent.includes('hackathon') ||
+      lowerContent.includes('carnival') ||
+      /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(content) || 
+      /\d{4}-\d{2}-\d{2}/.test(content) || 
+      /jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i.test(content);
+
+    if (hasEventIndicators || post.authorRole === 'club' || post.category === 'Clubs & Events') {
+      let extractedDate = 'Upcoming';
+      let extractedVenue = 'MMU Campus';
+      let extractedTime = 'All Day';
+
+      const dateMatch = content.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{4}-\d{2}-\d{2})|([A-Za-z]+ \d{1,2},? \d{4})/);
+      if (dateMatch) {
+        extractedDate = dateMatch[0];
+      }
+
+      const venueMatch = content.match(/(venue|location|at|hall|lab|room):?\s*([^\.,\n]+)/i);
+      if (venueMatch && venueMatch[2]) {
+        extractedVenue = venueMatch[2].trim();
+      }
+
+      const timeMatch = content.match(/(time|at):?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s*-\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)/i);
+      if (timeMatch && timeMatch[2]) {
+        extractedTime = timeMatch[2].trim();
+      }
+
+      return {
+        eventTitle: post.content.slice(0, 50) + (post.content.length > 50 ? '...' : ''),
+        eventDate: extractedDate,
+        venue: extractedVenue,
+        time: extractedTime
+      };
+    }
+
+    return null;
+  };
+
+  const getFullCalendarEvents = () => {
+    const map = new Map<string, CampusEvent>();
+    
+    savedEvents.forEach(e => {
+      map.set(e.title.toLowerCase(), e);
+    });
+
+    posts.forEach(p => {
+      const parsed = parseEventDetails(p);
+      if (parsed) {
+        const key = parsed.eventTitle.toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, {
+            id: 'parsed-' + p.id,
+            title: parsed.eventTitle,
+            date: parsed.eventDate,
+            time: parsed.time,
+            venue: parsed.venue,
+            campus: p.campus === 'Both' ? 'Cyberjaya' : p.campus,
+            clubName: p.authorName
+          });
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  };
+
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -1216,15 +1293,15 @@ export default function App() {
                       </a>
                     )}
 
-                    {post.eventDetails && (
+                    {(post.eventDetails || parseEventDetails(post)) && (
                       <div className="bg-[#ebeaff]/60 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-[#3d3bf3] uppercase">Event Alert</div>
-                          <h5 className="text-sm font-bold text-slate-900">{post.eventDetails.eventTitle}</h5>
-                          <p className="text-xs text-slate-600">{post.eventDetails.eventDate} · {post.eventDetails.venue}</p>
+                          <h5 className="text-sm font-bold text-slate-900">{(post.eventDetails || parseEventDetails(post))?.eventTitle}</h5>
+                          <p className="text-xs text-slate-600">{(post.eventDetails || parseEventDetails(post))?.eventDate} · {(post.eventDetails || parseEventDetails(post))?.venue}</p>
                         </div>
                         <button 
-                          onClick={() => handleSyncEvent(post.eventDetails!, post.authorName, post.campus)}
+                          onClick={() => handleSyncEvent((post.eventDetails || parseEventDetails(post))!, post.authorName, post.campus)}
                           className="px-3.5 py-2 bg-[#3d3bf3] text-white text-xs font-semibold rounded-xl hover:bg-indigo-700"
                         >
                           Sync to Calendar
@@ -1512,19 +1589,19 @@ export default function App() {
                       )}
 
                       {/* Event Details Card (if applicable) */}
-                      {post.eventDetails && (
+                      {(post.eventDetails || parseEventDetails(post)) && (
                         <div className="bg-[#ebeaff]/60 border border-indigo-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                           <div className="space-y-1">
                             <div className="text-xs font-bold text-[#3d3bf3] uppercase tracking-wide">Campus Event Alert</div>
-                            <h4 className="text-sm font-extrabold text-slate-900">{post.eventDetails.eventTitle}</h4>
+                            <h4 className="text-sm font-extrabold text-slate-900">{(post.eventDetails || parseEventDetails(post))?.eventTitle}</h4>
                             <div className="text-xs text-slate-600 flex flex-wrap gap-3">
-                              <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-indigo-600" />{post.eventDetails.eventDate}</span>
-                              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-indigo-600" />{post.eventDetails.time}</span>
-                              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-indigo-600" />{post.eventDetails.venue}</span>
+                              <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-indigo-600" />{(post.eventDetails || parseEventDetails(post))?.eventDate}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-indigo-600" />{(post.eventDetails || parseEventDetails(post))?.time}</span>
+                              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-indigo-600" />{(post.eventDetails || parseEventDetails(post))?.venue}</span>
                             </div>
                           </div>
                           <button 
-                            onClick={() => handleSyncEvent(post.eventDetails!, post.authorName, post.campus)}
+                            onClick={() => handleSyncEvent((post.eventDetails || parseEventDetails(post))!, post.authorName, post.campus)}
                             className="px-4 py-2 bg-[#3d3bf3] hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors whitespace-nowrap flex items-center gap-1.5 shrink-0"
                           >
                             <Calendar className="w-3.5 h-3.5" />
@@ -1613,12 +1690,12 @@ export default function App() {
                 <p className="text-xs text-slate-500 mt-0.5">All official club activities, hackathons, exams, and workshops synced across MMU.</p>
               </div>
               <div className="text-xs font-semibold bg-indigo-50 text-[#3d3bf3] px-3 py-1.5 rounded-xl border border-indigo-200">
-                {savedEvents.length} Synced Events
+                {getFullCalendarEvents().length} Total Events
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedEvents.map(evt => (
+              {getFullCalendarEvents().map(evt => (
                 <div key={evt.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <span className="text-xs bg-[#ebeaff] text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
