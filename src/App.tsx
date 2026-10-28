@@ -277,18 +277,57 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
-  const [savedEvents, setSavedEvents] = useState<CampusEvent[]>([
-    {
-      id: 'e-1',
-      title: 'MMU Grand Club Carnival 2026',
-      date: 'Nov 12, 2026',
-      time: '10:00 AM - 6:00 PM',
-      venue: 'Grand Atrium, Cyberjaya Campus',
-      campus: 'Cyberjaya',
-      clubName: 'MMU Cyberjaya Student Council'
+  const [posts, setPosts] = useState<Post[]>(() => {
+    const saved = localStorage.getItem('mmu_keep_up_posts');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return INITIAL_POSTS;
+      }
     }
-  ]);
+    return INITIAL_POSTS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mmu_keep_up_posts', JSON.stringify(posts));
+  }, [posts]);
+
+  const [savedEvents, setSavedEvents] = useState<CampusEvent[]>(() => {
+    const saved = localStorage.getItem('mmu_keep_up_events');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [
+          {
+            id: 'e-1',
+            title: 'MMU Grand Club Carnival 2026',
+            date: 'Nov 12, 2026',
+            time: '10:00 AM - 6:00 PM',
+            venue: 'Grand Atrium, Cyberjaya Campus',
+            campus: 'Cyberjaya',
+            clubName: 'MMU Cyberjaya Student Council'
+          }
+        ];
+      }
+    }
+    return [
+      {
+        id: 'e-1',
+        title: 'MMU Grand Club Carnival 2026',
+        date: 'Nov 12, 2026',
+        time: '10:00 AM - 6:00 PM',
+        venue: 'Grand Atrium, Cyberjaya Campus',
+        campus: 'Cyberjaya',
+        clubName: 'MMU Cyberjaya Student Council'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mmu_keep_up_events', JSON.stringify(savedEvents));
+  }, [savedEvents]);
 
   // Notifications state
   const [notifications, setNotifications] = useState<NotificationItem[]>([
@@ -585,6 +624,24 @@ export default function App() {
       };
 
       setPosts([newPostObj, ...posts]);
+
+      if (newPostObj.eventDetails) {
+        const autoEvent: CampusEvent = {
+          id: 'e-' + Date.now(),
+          title: newPostObj.eventDetails.eventTitle,
+          date: newPostObj.eventDetails.eventDate,
+          time: newPostObj.eventDetails.time,
+          venue: newPostObj.eventDetails.venue,
+          campus: newPostObj.campus === 'Both' ? 'Cyberjaya' : newPostObj.campus,
+          clubName: newPostObj.authorName
+        };
+        setSavedEvents(prev => {
+          if (!prev.some(e => e.title === autoEvent.title)) {
+            return [autoEvent, ...prev];
+          }
+          return prev;
+        });
+      }
 
       const matchedClub = REGISTERED_CLUBS.find(c => c.name === currentUser.name);
       if (matchedClub && followedClubIds.includes(matchedClub.id)) {
@@ -1767,7 +1824,7 @@ export default function App() {
       {/* NEW POST MODAL */}
       {isNewPostOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-indigo-100 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6 space-y-5 shadow-2xl border border-indigo-100 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Create Campus Post</h3>
