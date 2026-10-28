@@ -803,7 +803,7 @@ export default function App() {
       {/* MANDATORY AUTHENTICATION / REGISTRATION MODAL WITH ACCOUNT SWITCHER */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-[#9694ff]/30 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl border border-[#9694ff]/30 animate-in fade-in zoom-in duration-200">
             <div className="text-center mb-6">
               <span className="bg-[#ebeaff] text-[#3d3bf3] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                 MMU KEEP UP
@@ -920,7 +920,18 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Password</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-700 uppercase">Password</label>
+                  {authMode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://mail.google.com', '_blank')}
+                      className="text-[11px] text-[#3d3bf3] hover:underline font-semibold"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
