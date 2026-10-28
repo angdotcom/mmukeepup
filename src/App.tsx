@@ -401,8 +401,23 @@ export default function App() {
   // Comment input state per post
   const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
 
-  const followedClubs = REGISTERED_CLUBS.filter(c => followedClubIds.includes(c.id));
-  const exploreClubs = REGISTERED_CLUBS.filter(c => !followedClubIds.includes(c.id));
+  const allClubs: ClubAccount[] = [
+    ...REGISTERED_CLUBS,
+    ...savedAccounts
+      .filter(acc => acc.role === 'club' && !REGISTERED_CLUBS.some(c => c.id === acc.id || c.name === acc.name))
+      .map(acc => ({
+        id: acc.id,
+        name: acc.name,
+        handle: acc.handle,
+        avatar: '🏆',
+        bio: `Official registered club account for ${acc.name}.`,
+        campus: 'Both' as const,
+        followersCount: 120
+      }))
+  ];
+
+  const followedClubs = allClubs.filter(c => followedClubIds.includes(c.id));
+  const exploreClubs = allClubs.filter(c => !followedClubIds.includes(c.id));
 
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1186,7 +1201,7 @@ export default function App() {
                             key={idx} 
                             src={url} 
                             alt="post attachment" 
-                            className="rounded-xl w-full h-64 object-cover border border-gray-100 shadow-sm" 
+                            className="rounded-xl w-full max-h-[500px] object-contain bg-gray-50 border border-gray-100 shadow-sm" 
                             referrerPolicy="no-referrer"
                           />
                         ))}
@@ -1480,7 +1495,7 @@ export default function App() {
                               key={idx} 
                               src={url} 
                               alt="post attachment" 
-                              className="rounded-xl w-full h-64 object-cover border border-gray-100 shadow-sm" 
+                              className="rounded-xl w-full max-h-[500px] object-contain bg-gray-50 border border-gray-100 shadow-sm" 
                               referrerPolicy="no-referrer"
                             />
                           ))}
