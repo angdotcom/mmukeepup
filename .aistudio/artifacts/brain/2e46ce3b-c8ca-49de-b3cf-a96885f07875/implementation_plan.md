@@ -1,31 +1,30 @@
-# Implementation Plan - MMU Keep Up Authentication Integration
+# Implementation Plan - Club Navigation and Individual Club Page
 
-Integrate the streamlined user authentication modal and profile management provided by the user into the full-featured MMU Keep Up application, maintaining the campus feed, event calendar, clubs directory, and KeepUp AI assistant.
+Implement interactive club navigation and individual club profile pages in MMU Keep Up.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> - **Streamlined Auth Modal**: Allows users to pick their role (Student, Club, Lecturer, Outsider), enter their name and MMU email, and persist their session in `localStorage`.
-> - **Full Feature Retention**: Keeps the Campus Feed, Event Calendar, Clubs Directory, KeepUp AI Assistant, and AI Post Moderator intact.
-> - **Role Enforcement**: Unauthenticated users or guests (Outsiders) will be prompted to sign in when attempting to post or sync events.
+> - **Sidebar Club List**: Displays registered clubs ("MMU Cyberjaya Student Council", "Google Developer Student Club (GDSC)", "MMU Cyber Law Society", etc.) with avatar, verified checkmark, handle, follower count, bio, and "Follow / Following" interactive toggle buttons.
+> - **Dedicated Club Profile View (`activeTab === 'club-detail'`)**: Clicking any club in the sidebar navigates to their profile page, featuring their banner/header info, follower stats, bio, and filtering the feed to show **only** posts by that club.
+> - **Back Navigation**: Includes a clear "Back to Home Feed" button.
 
 - **Proceed**: Click the Proceed button to execute this plan and update the application.
 
 ## Proposed Changes
 
 ### Frontend (`/src/App.tsx`)
-- Integrate `UserProfile` state and `localStorage` persistence.
-- Add the Streamlined Sign In / Registration Modal supporting Student, Club, Lecturer, and Outsider roles.
-- Update top navigation and sidebar to display the logged-in user profile, avatar, verification status, and switch/logout controls.
-- Protect post creation and event synchronization actions using `requireAuthAction`.
-- Retain all tabs: Campus Feed, Event Calendar, Clubs Directory, and KeepUp AI Assistant.
+- Add a dedicated `ClubProfile` data structure and state for followed clubs (`followedClubs` set).
+- Add the "Campus Clubs & Societies" section to the left sidebar with follower counts, bios, and Follow/Following buttons.
+- Implement click handlers on club names and avatars to set `activeTab = 'club-detail'` and `selectedClub`.
+- Create the individual club profile page view displaying club header, statistics, follow action, and filtered posts by that club.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `compile_applet` and `lint_applet` to ensure zero compilation or TypeScript errors.
+- Run `compile_applet` and `lint_applet` to verify zero TypeScript or build errors.
 
 ### Manual Verification
-- Verify the sign-in modal appears on first load or when switching users.
-- Test posting announcements as a Club or Lecturer versus a Student.
-- Verify event calendar syncing and KeepUp AI chat functionality.
+- Click on different clubs in the sidebar to verify navigation to their club profile page.
+- Test toggling Follow/Following buttons and check post filtering.
+- Verify the "Back to Home Feed" button returns correctly.

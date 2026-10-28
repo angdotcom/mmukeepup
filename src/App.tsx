@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Bell, Search, Plus, Calendar, MessageSquare, Heart, Bookmark, Share2, 
   ShieldCheck, User, Sparkles, MapPin, Building2, BookOpen, Send, CheckCircle, 
-  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X, ArrowRight
+  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X, ArrowRight, ArrowLeft
 } from 'lucide-react';
 
 type UserRole = 'student' | 'lecturer' | 'club' | 'outsider';
@@ -14,6 +14,16 @@ interface UserProfile {
   role: UserRole;
   avatar: string;
   verified: boolean;
+}
+
+interface ClubAccount {
+  id: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  bio: string;
+  campus: 'Cyberjaya' | 'Melaka' | 'Both';
+  followersCount: number;
 }
 
 interface Post {
@@ -56,6 +66,54 @@ interface CampusEvent {
   campus: 'Cyberjaya' | 'Melaka';
   clubName: string;
 }
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  type: 'follow' | 'new_post' | 'event';
+}
+
+const REGISTERED_CLUBS: ClubAccount[] = [
+  {
+    id: 'club-1',
+    name: 'MMU Cyberjaya Student Council',
+    handle: '@mmu_csc',
+    avatar: '🏛️',
+    bio: 'Official student government representing Multimedia University Cyberjaya campus.',
+    campus: 'Cyberjaya',
+    followersCount: 1420
+  },
+  {
+    id: 'club-2',
+    name: 'Google Developer Student Club (GDSC)',
+    handle: '@mmu_gdsc',
+    avatar: '💻',
+    bio: 'Empowering student developers with Google cloud, machine learning, and web technologies.',
+    campus: 'Cyberjaya',
+    followersCount: 1890
+  },
+  {
+    id: 'club-3',
+    name: 'MMU Cyber Law Society',
+    handle: '@mmu_cyberlaw',
+    avatar: '⚖️',
+    bio: 'Promoting digital legal literacy, seminars, and inter-varsity moot court competitions.',
+    campus: 'Melaka',
+    followersCount: 850
+  },
+  {
+    id: 'club-4',
+    name: 'MMU Esports Club',
+    handle: '@mmu_esports',
+    avatar: '🎮',
+    bio: 'Official varsity esports team and competitive gaming tournaments across Malaysia.',
+    campus: 'Both',
+    followersCount: 2300
+  }
+];
 
 const INITIAL_POSTS: Post[] = [
   {
@@ -156,7 +214,10 @@ export default function App() {
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'feed' | 'calendar' | 'clubs' | 'ai-assistant'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'calendar' | 'clubs' | 'ai-assistant' | 'club-detail'>('feed');
+  const [selectedClub, setSelectedClub] = useState<ClubAccount | null>(null);
+  const [followedClubIds, setFollowedClubIds] = useState<string[]>(['club-1', 'club-2']);
+
   const [selectedCampus, setSelectedCampus] = useState<'All' | 'Cyberjaya' | 'Melaka'>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -173,6 +234,27 @@ export default function App() {
       clubName: 'MMU Cyberjaya Student Council'
     }
   ]);
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: 'notif-1',
+      title: 'New Announcement',
+      message: 'MMU Cyberjaya Student Council posted: Annual MMU Grand Club Carnival 2026',
+      timestamp: '2 hours ago',
+      read: false,
+      type: 'new_post'
+    },
+    {
+      id: 'notif-2',
+      title: 'Follow Update',
+      message: 'You are now following Google Developer Student Club (GDSC)',
+      timestamp: 'Yesterday',
+      read: true,
+      type: 'follow'
+    }
+  ]);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
 
   // New post modal state
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
@@ -223,6 +305,44 @@ export default function App() {
       return;
     }
     action();
+  };
+
+  const toggleFollowClub = (club: ClubAccount) => {
+    const isCurrentlyFollowing = followedClubIds.includes(club.id);
+    if (isCurrentlyFollowing) {
+      setFollowedClubIds(followedClubIds.filter(id => id !== club.id));
+      // Add notification for unfollow
+      const newNotif: NotificationItem = {
+        id: 'notif-' + Date.now(),
+        title: 'Unfollowed Club',
+        message: `You stopped following ${club.name}`,
+        timestamp: 'Just now',
+        read: false,
+        type: 'follow'
+      };
+      setNotifications([newNotif, ...notifications]);
+    } else {
+      setFollowedClubIds([...followedClubIds, club.id]);
+      // Add notification for follow
+      const newNotif: NotificationItem = {
+        id: 'notif-' + Date.now(),
+        title: 'New Following',
+        message: `You successfully started following ${club.name}`,
+        timestamp: 'Just now',
+        read: false,
+        type: 'follow'
+      };
+      setNotifications([newNotif, ...notifications]);
+    }
+  };
+
+  const handleClubClick = (club: ClubAccount) => {
+    setSelectedClub(club);
+    setActiveTab('club-detail');
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
   const handleLike = (postId: string) => {
@@ -293,7 +413,6 @@ export default function App() {
     }
     if (!newPostContent.trim()) return;
 
-    // Role verification
     if (currentUser.role === 'student' && newPostIsOfficial) {
       alert('Notice: Students cannot publish Official Announcements. Your post will be published as standard.');
       setNewPostIsOfficial(false);
@@ -331,6 +450,21 @@ export default function App() {
       };
 
       setPosts([newPostObj, ...posts]);
+
+      // If author is a club or if currentUser is a club being followed, add notification for followers
+      const matchedClub = REGISTERED_CLUBS.find(c => c.name === currentUser.name);
+      if (matchedClub && followedClubIds.includes(matchedClub.id)) {
+        const followNotif: NotificationItem = {
+          id: 'notif-' + Date.now(),
+          title: 'New Post by Following',
+          message: `${currentUser.name} posted: "${newPostContent.slice(0, 60)}..."`,
+          timestamp: 'Just now',
+          read: false,
+          type: 'new_post'
+        };
+        setNotifications(prev => [followNotif, ...prev]);
+      }
+
       setNewPostContent('');
       setNewPostMediaUrl('');
       setIsNewPostOpen(false);
@@ -394,10 +528,12 @@ export default function App() {
     return matchesCampus && matchesCategory && matchesSearch;
   });
 
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   return (
     <div className="min-h-screen bg-[#ebeaff] text-slate-900 flex flex-col font-sans">
       
-      {/* STREAMLINED AUTHENTICATION MODAL */}
+      {/* AUTHENTICATION MODAL */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl border border-[#9694ff]/30 animate-in fade-in zoom-in duration-200">
@@ -484,16 +620,16 @@ export default function App() {
         </div>
       )}
 
-      {/* TOP BAR CONTRACT: 3 Zones */}
+      {/* TOP BAR CONTRACT */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-indigo-100 px-6 py-3.5 flex items-center justify-between gap-8">
         
         {/* Zone 1: Brand Wordmark */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-[#3d3bf3] text-white flex items-center justify-center font-bold text-xl shadow-md shadow-indigo-500/20">
+          <div className="w-10 h-10 rounded-xl bg-[#3d3bf3] text-white flex items-center justify-center font-bold text-xl shadow-md shadow-indigo-500/25">
             M
           </div>
           <div>
-            <a href="/" className="text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap block">
+            <a href="/" onClick={(e) => { e.preventDefault(); setActiveTab('feed'); }} className="text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap block">
               MMU KEEP UP
             </a>
             <span className="text-[11px] text-[#3d3bf3] font-semibold tracking-wide uppercase block -mt-1">
@@ -531,8 +667,53 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Zone 3: User Profile & Primary Action */}
+        {/* Zone 3: User Profile, Notifications & Primary Action */}
         <div className="flex items-center gap-3 shrink-0">
+          
+          {/* Notifications Bell Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+              className="relative p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#ff2929] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotificationsDropdown && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-indigo-100 py-3 z-50 animate-in fade-in zoom-in duration-150">
+                <div className="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900">Notifications</h4>
+                  {unreadCount > 0 && (
+                    <button onClick={markAllNotificationsRead} className="text-[11px] text-[#3d3bf3] font-semibold hover:underline">
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                  {notifications.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-6">No notifications yet</p>
+                  ) : (
+                    notifications.map(notif => (
+                      <div key={notif.id} className={`p-3 text-xs space-y-1 hover:bg-slate-50 transition-colors ${!notif.read ? 'bg-indigo-50/40' : ''}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800">{notif.title}</span>
+                          <span className="text-[10px] text-slate-400">{notif.timestamp}</span>
+                        </div>
+                        <p className="text-slate-600 leading-snug">{notif.message}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {currentUser ? (
             <div className="flex items-center gap-3 bg-[#ebeaff]/80 px-3.5 py-1.5 rounded-xl border border-indigo-200">
               <img src={currentUser.avatar} alt="avatar" className="w-7 h-7 rounded-full bg-white border border-indigo-300" />
@@ -582,13 +763,160 @@ export default function App() {
       {/* MAIN CONTENT AREA */}
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
         
-        {activeTab === 'feed' && (
+        {activeTab === 'club-detail' && selectedClub ? (
+          /* DEDICATED CLUB PROFILE & FEED NAVIGATION */
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl p-8 border border-indigo-100 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-100/50 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-5">
+                  <div className="w-20 h-20 rounded-2xl bg-[#ebeaff] border-2 border-indigo-200 flex items-center justify-center text-4xl shadow-inner shrink-0">
+                    {selectedClub.avatar}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{selectedClub.name}</h1>
+                      <CheckCircle className="w-5 h-5 text-[#3d3bf3]" />
+                    </div>
+                    <p className="text-xs text-indigo-600 font-semibold">{selectedClub.handle} · MMU {selectedClub.campus}</p>
+                    <p className="text-xs text-slate-600 mt-2 max-w-xl leading-relaxed">{selectedClub.bio}</p>
+                    <div className="flex items-center gap-4 mt-3 text-xs text-slate-500 font-mono">
+                      <span><strong>{selectedClub.followersCount.toLocaleString()}</strong> Followers</span>
+                      <span>·</span>
+                      <span><strong>{posts.filter(p => p.authorName === selectedClub.name).length}</strong> Official Posts</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <button 
+                    onClick={() => toggleFollowClub(selectedClub)}
+                    className={`flex-1 md:flex-initial px-6 py-2.5 rounded-xl text-xs font-bold shadow-sm transition-colors ${followedClubIds.includes(selectedClub.id) ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200' : 'bg-[#3d3bf3] text-white hover:bg-indigo-700'}`}
+                  >
+                    {followedClubIds.includes(selectedClub.id) ? 'Following' : 'Follow Club'}
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('feed')}
+                    className="px-4 py-2.5 bg-white border border-indigo-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Feed
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Announcements & Feed by {selectedClub.name}</h3>
+              
+              {posts.filter(p => p.authorName === selectedClub.name).length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 text-center border border-indigo-100 space-y-3">
+                  <AlertCircle className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h4 className="text-sm font-bold text-slate-700">No posts from this club yet</h4>
+                  <p className="text-xs text-slate-500">Check back later for official announcements and events.</p>
+                </div>
+              ) : (
+                posts.filter(p => p.authorName === selectedClub.name).map(post => (
+                  <article key={post.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#ebeaff] border border-indigo-200 flex items-center justify-center text-lg">
+                          {post.authorAvatar}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">{post.authorName}</h4>
+                          <span className="text-xs text-slate-400">{post.timestamp}</span>
+                        </div>
+                      </div>
+                      <span className="bg-[#ff2929]/10 text-[#ff2929] px-3 py-1 rounded-full text-xs font-bold border border-[#ff2929]/20">
+                        Official Club Post
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{post.content}</p>
+
+                    {post.eventDetails && (
+                      <div className="bg-[#ebeaff]/60 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-[#3d3bf3] uppercase">Event Alert</div>
+                          <h5 className="text-sm font-bold text-slate-900">{post.eventDetails.eventTitle}</h5>
+                          <p className="text-xs text-slate-600">{post.eventDetails.eventDate} · {post.eventDetails.venue}</p>
+                        </div>
+                        <button 
+                          onClick={() => handleSyncEvent(post.eventDetails!, post.authorName, post.campus)}
+                          className="px-3.5 py-2 bg-[#3d3bf3] text-white text-xs font-semibold rounded-xl hover:bg-indigo-700"
+                        >
+                          Sync to Calendar
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            {/* LEFT SIDEBAR: Campus filter, category filter, saved events widget */}
+            {/* LEFT SIDEBAR: Campus Clubs & Societies with Follow Toggles */}
             <div className="lg:col-span-3 space-y-6">
               
-              {/* Campus Selector Card */}
+              {/* Campus Clubs & Societies Sidebar Section */}
+              <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Campus Clubs & Societies</h3>
+                  <span className="text-[10px] bg-[#3d3bf3] text-white px-2 py-0.5 rounded-full font-bold">{REGISTERED_CLUBS.length}</span>
+                </div>
+                <div className="space-y-3">
+                  {REGISTERED_CLUBS.map(club => {
+                    const isFollowing = followedClubIds.includes(club.id);
+                    return (
+                      <div key={club.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-all space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div 
+                            onClick={() => handleClubClick(club)}
+                            className="flex items-center gap-2.5 cursor-pointer group"
+                          >
+                            <div className="w-9 h-9 rounded-xl bg-white border border-indigo-200 flex items-center justify-center text-lg shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                              {club.avatar}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-900 group-hover:text-[#3d3bf3] transition-colors flex items-center gap-1">
+                                {club.name}
+                                <CheckCircle className="w-3 h-3 text-[#3d3bf3] shrink-0" />
+                              </h4>
+                              <p className="text-[11px] text-slate-400">{club.handle}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+                          {club.bio}
+                        </p>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {club.followersCount.toLocaleString()} followers
+                          </span>
+                          <button 
+                            onClick={() => toggleFollowClub(club)}
+                            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                              isFollowing 
+                                ? 'bg-indigo-50 text-[#3d3bf3] border border-indigo-200' 
+                                : 'bg-[#3d3bf3] text-white hover:bg-indigo-700 shadow-sm'
+                            }`}
+                          >
+                            {isFollowing ? 'Following' : 'Follow'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Campus Filter */}
               <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Campus Filter</h3>
                 <div className="space-y-1">
@@ -890,36 +1218,54 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                { name: 'Google Developer Student Club (GDSC)', campus: 'Cyberjaya', members: '1,420', category: 'Technology', desc: 'Empowering student developers with Google cloud and AI technologies.' },
-                { name: 'MMU Cyber Law Society', campus: 'Melaka', members: '850', category: 'Academic', desc: 'Promoting legal literacy and moot court competitions.' },
-                { name: 'MMU Esports Club', campus: 'Both', members: '2,300', category: 'Sports & Gaming', desc: 'Official Valorant, Mobile Legends, and Dota 2 varsity teams.' },
-                { name: 'Cultural & Arts Society', campus: 'Cyberjaya', members: '1,100', category: 'Culture', desc: 'Showcasing traditional and modern dance, music, and theatre.' },
-                { name: 'IEEE Student Branch', campus: 'Both', members: '980', category: 'Engineering', desc: 'Global technical professional association for engineering students.' },
-                { name: 'Rotaract Club of MMU', campus: 'Melaka', members: '650', category: 'Community', desc: 'Community service, charity drives, and leadership development.' }
-              ].map((club, idx) => (
-                <div key={idx} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs bg-indigo-50 text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
-                      MMU {club.campus}
-                    </span>
-                    <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
-                      <Users className="w-3.5 h-3.5" />
-                      {club.members} members
-                    </span>
+              {REGISTERED_CLUBS.map((club) => {
+                const isFollowing = followedClubIds.includes(club.id);
+                return (
+                  <div key={club.id} className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs bg-indigo-50 text-[#3d3bf3] font-semibold px-2.5 py-1 rounded-lg">
+                        MMU {club.campus}
+                      </span>
+                      <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
+                        <Users className="w-3.5 h-3.5" />
+                        {club.followersCount.toLocaleString()} followers
+                      </span>
+                    </div>
+                    <div 
+                      onClick={() => handleClubClick(club)}
+                      className="cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-[#ebeaff] flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
+                          {club.avatar}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 group-hover:text-[#3d3bf3] transition-colors flex items-center gap-1.5">
+                            {club.name}
+                            <CheckCircle className="w-4 h-4 text-[#3d3bf3]" />
+                          </h3>
+                          <p className="text-xs text-slate-400">{club.handle}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-3 leading-relaxed">{club.bio}</p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <button 
+                        onClick={() => handleClubClick(club)}
+                        className="text-xs font-semibold text-[#3d3bf3] hover:underline"
+                      >
+                        View Profile & Feed
+                      </button>
+                      <button 
+                        onClick={() => toggleFollowClub(club)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${isFollowing ? 'bg-indigo-50 text-[#3d3bf3] border border-indigo-200' : 'bg-[#3d3bf3] text-white hover:bg-indigo-700'}`}
+                      >
+                        {isFollowing ? 'Following' : 'Follow Club'}
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">{club.name}</h3>
-                    <p className="text-xs text-slate-600 mt-2 leading-relaxed">{club.desc}</p>
-                  </div>
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-medium text-[#3d3bf3]">{club.category}</span>
-                    <button onClick={() => alert(`Successfully joined ${club.name}! You will receive notifications.`)} className="px-3 py-1.5 bg-[#3d3bf3] text-white text-xs font-semibold rounded-xl hover:bg-indigo-700 transition-colors">
-                      Join Club
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
