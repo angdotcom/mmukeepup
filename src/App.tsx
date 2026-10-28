@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Bell, Search, Plus, Calendar, MessageSquare, Heart, Bookmark, Share2, 
   ShieldCheck, User, Sparkles, MapPin, Building2, BookOpen, Send, CheckCircle, 
-  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X, ArrowRight, ArrowLeft
+  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X, ArrowRight, ArrowLeft, Link as LinkIcon
 } from 'lucide-react';
 
 type UserRole = 'student' | 'lecturer' | 'club' | 'outsider';
@@ -35,6 +35,7 @@ interface Post {
   category: 'Clubs & Events' | 'Academic' | 'Campus Life' | 'Marketplace';
   content: string;
   mediaUrls: string[];
+  referenceUrl?: string;
   isOfficialAnnouncement: boolean;
   isPinned?: boolean;
   likes: number;
@@ -125,6 +126,7 @@ const INITIAL_POSTS: Post[] = [
     category: 'Clubs & Events',
     content: '🎉 Annual MMU Grand Club Carnival 2026 is officially happening next week! Join over 60+ societies at the grand atrium for food trucks, live band performances, tech showcases, and exclusive merchandise giveaways. Don\'t miss out!',
     mediaUrls: ['https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80'],
+    referenceUrl: 'https://mmu.edu.my/carnival2026',
     isOfficialAnnouncement: true,
     isPinned: true,
     likes: 342,
@@ -167,6 +169,7 @@ const INITIAL_POSTS: Post[] = [
     category: 'Clubs & Events',
     content: '🚀 Level up your cloud & AI skills! Join our upcoming hands-on GenAI Hackathon 2026 workshop this Thursday at Lab 3.2. Free pizza and certificate of participation provided for all registered attendees.',
     mediaUrls: ['https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80'],
+    referenceUrl: 'https://gdsc.mmu.edu.my/hackathon',
     isOfficialAnnouncement: false,
     likes: 195,
     bookmarks: 94,
@@ -262,6 +265,7 @@ export default function App() {
   const [newPostCategory, setNewPostCategory] = useState<'Clubs & Events' | 'Academic' | 'Campus Life' | 'Marketplace'>('Clubs & Events');
   const [newPostCampus, setNewPostCampus] = useState<'Cyberjaya' | 'Melaka' | 'Both'>('Cyberjaya');
   const [newPostMediaUrl, setNewPostMediaUrl] = useState('');
+  const [newPostRefUrl, setNewPostRefUrl] = useState('');
   const [newPostIsOfficial, setNewPostIsOfficial] = useState(false);
   const [isAnalyzingAI, setIsAnalyzingAI] = useState(false);
 
@@ -434,6 +438,7 @@ export default function App() {
         category: newPostCategory,
         content: data.cleanContent || newPostContent,
         mediaUrls: newPostMediaUrl ? [newPostMediaUrl] : [],
+        referenceUrl: newPostRefUrl ? newPostRefUrl : undefined,
         isOfficialAnnouncement: currentUser.role !== 'student' ? (data.isOfficialAnnouncement ?? newPostIsOfficial) : false,
         likes: 1,
         bookmarks: 0,
@@ -464,6 +469,7 @@ export default function App() {
 
       setNewPostContent('');
       setNewPostMediaUrl('');
+      setNewPostRefUrl('');
       setIsNewPostOpen(false);
     } catch (err) {
       console.error(err);
@@ -477,6 +483,7 @@ export default function App() {
         category: newPostCategory,
         content: newPostContent,
         mediaUrls: newPostMediaUrl ? [newPostMediaUrl] : [],
+        referenceUrl: newPostRefUrl ? newPostRefUrl : undefined,
         isOfficialAnnouncement: false,
         likes: 1,
         bookmarks: 0,
@@ -484,6 +491,9 @@ export default function App() {
         comments: []
       };
       setPosts([fallbackPost, ...posts]);
+      setNewPostContent('');
+      setNewPostMediaUrl('');
+      setNewPostRefUrl('');
       setIsNewPostOpen(false);
     } finally {
       setIsAnalyzingAI(false);
@@ -833,7 +843,6 @@ export default function App() {
 
                     <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{post.content}</p>
 
-                    {/* RENDER POST PICTURES / MEDIA ATTACHMENTS (FIX) */}
                     {post.mediaUrls && post.mediaUrls.length > 0 && (
                       <div className={`mt-4 grid gap-2 ${post.mediaUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         {post.mediaUrls.map((url, idx) => (
@@ -846,6 +855,14 @@ export default function App() {
                           />
                         ))}
                       </div>
+                    )}
+
+                    {post.referenceUrl && (
+                      <a href={post.referenceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-xs text-[#3d3bf3] font-semibold hover:bg-indigo-100/60 transition-colors">
+                        <LinkIcon className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{post.referenceUrl}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 ml-auto shrink-0" />
+                      </a>
                     )}
 
                     {post.eventDetails && (
@@ -1071,6 +1088,30 @@ export default function App() {
                         {post.content}
                       </p>
 
+                      {/* Media Attachment (if any) */}
+                      {post.mediaUrls.length > 0 && (
+                        <div className={`mt-4 grid gap-2 ${post.mediaUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                          {post.mediaUrls.map((url, idx) => (
+                            <img 
+                              key={idx} 
+                              src={url} 
+                              alt="post attachment" 
+                              className="rounded-xl w-full h-64 object-cover border border-gray-100 shadow-sm" 
+                              referrerPolicy="no-referrer"
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reference URL (if any) */}
+                      {post.referenceUrl && (
+                        <a href={post.referenceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-xs text-[#3d3bf3] font-semibold hover:bg-indigo-100/60 transition-colors">
+                          <LinkIcon className="w-4 h-4 shrink-0" />
+                          <span className="truncate">{post.referenceUrl}</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 ml-auto shrink-0" />
+                        </a>
+                      )}
+
                       {/* Event Details Card (if applicable) */}
                       {post.eventDetails && (
                         <div className="bg-[#ebeaff]/60 border border-indigo-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1090,18 +1131,6 @@ export default function App() {
                             <Calendar className="w-3.5 h-3.5" />
                             Sync to Calendar
                           </button>
-                        </div>
-                      )}
-
-                      {/* Media Attachment (if any) */}
-                      {post.mediaUrls.length > 0 && (
-                        <div className="rounded-xl overflow-hidden border border-slate-200 max-h-96 bg-slate-50">
-                          <img 
-                            src={post.mediaUrls[0]} 
-                            alt="Post attachment" 
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
                         </div>
                       )}
 
@@ -1339,7 +1368,7 @@ export default function App() {
       {/* NEW POST MODAL */}
       {isNewPostOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl border border-indigo-100 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-indigo-100 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Create Campus Post</h3>
@@ -1351,57 +1380,73 @@ export default function App() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
-                <select 
-                  value={newPostCategory}
-                  onChange={(e) => setNewPostCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#3d3bf3]"
-                >
-                  <option value="Clubs & Events">Clubs & Events</option>
-                  <option value="Academic">Academic</option>
-                  <option value="Campus Life">Campus Life</option>
-                  <option value="Marketplace">Marketplace & Lost/Found</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
+                  <select 
+                    value={newPostCategory}
+                    onChange={(e) => setNewPostCategory(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#3d3bf3]"
+                  >
+                    <option value="Clubs & Events">Clubs & Events</option>
+                    <option value="Academic">Academic</option>
+                    <option value="Campus Life">Campus Life</option>
+                    <option value="Marketplace">Marketplace & Lost/Found</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Campus</label>
+                  <select 
+                    value={newPostCampus}
+                    onChange={(e) => setNewPostCampus(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#3d3bf3]"
+                  >
+                    <option value="Cyberjaya">Cyberjaya Campus</option>
+                    <option value="Melaka">Melaka Campus</option>
+                    <option value="Both">Both Campuses</option>
+                  </select>
+                </div>
               </div>
 
+              {/* 1. Photo Upload / Image URL Input (at top) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Campus</label>
-                <select 
-                  value={newPostCampus}
-                  onChange={(e) => setNewPostCampus(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#3d3bf3]"
-                >
-                  <option value="Cyberjaya">Cyberjaya Campus</option>
-                  <option value="Melaka">Melaka Campus</option>
-                  <option value="Both">Both Campuses</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Post Content (AI will parse event details automatically)</label>
-                <textarea 
-                  rows={4}
-                  placeholder="Share announcements, club events (include date & venue for auto-sync), or campus questions..."
-                  value={newPostContent}
-                  onChange={(e) => setNewPostContent(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3d3bf3]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Media Image URL (Optional)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Media Image / Photo (Optional)</label>
                 <input 
                   type="text" 
                   placeholder="https://images.unsplash.com/..."
                   value={newPostMediaUrl}
                   onChange={(e) => setNewPostMediaUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3d3bf3]"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3d3bf3]"
+                />
+              </div>
+
+              {/* 2. Post Content / Description Textarea (middle) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Post Content / Description</label>
+                <textarea 
+                  rows={4}
+                  placeholder="Share announcements, club events (include date & venue for auto-sync), or campus questions..."
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3d3bf3]"
+                />
+              </div>
+
+              {/* 3. URL Link Input (bottom) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">External Reference URL (Optional)</label>
+                <input 
+                  type="text" 
+                  placeholder="https://mmu.edu.my/..."
+                  value={newPostRefUrl}
+                  onChange={(e) => setNewPostRefUrl(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3d3bf3]"
                 />
               </div>
 
               {currentUser && currentUser.role !== 'student' && currentUser.role !== 'outsider' && (
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex items-center gap-2 pt-1">
                   <input 
                     type="checkbox" 
                     id="officialToggle"
