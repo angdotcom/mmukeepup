@@ -316,7 +316,38 @@ export default function App() {
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostCategory, setNewPostCategory] = useState<'Clubs & Events' | 'Academic' | 'Campus Life' | 'Marketplace'>('Clubs & Events');
   const [newPostCampus, setNewPostCampus] = useState<'Cyberjaya' | 'Melaka' | 'Both'>('Cyberjaya');
-  const [newPostMediaUrl, setNewPostMediaUrl] = useState('');
+  const [newPostMediaUrls, setNewPostMediaUrls] = useState<string[]>([]);
+
+  const handleImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const filesArray = Array.from(e.target.files);
+    const maxLimit = currentUser?.role === 'club' ? 10 : 3;
+
+    if (filesArray.length > maxLimit || newPostMediaUrls.length + filesArray.length > maxLimit) {
+      alert(`Limit exceeded: Clubs can upload up to 10 images, while student/guest posts are limited to ${maxLimit} images.`);
+      return;
+    }
+
+    const readPromises = filesArray.map(file => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(readPromises).then(base64Urls => {
+      setNewPostMediaUrls(prev => [...prev, ...base64Urls].slice(0, maxLimit));
+    }).catch(err => {
+      console.error('Failed to read image files', err);
+      alert('Failed to process image files.');
+    });
+  };
+
+  const removeImageAt = (index: number) => {
+    setNewPostMediaUrls(prev => prev.filter((_, idx) => idx !== index));
+  };
   const [newPostRefUrl, setNewPostRefUrl] = useState('');
   const [newPostIsOfficial, setNewPostIsOfficial] = useState(false);
   const [isAnalyzingAI, setIsAnalyzingAI] = useState(false);
@@ -538,7 +569,7 @@ export default function App() {
         campus: newPostCampus,
         category: newPostCategory,
         content: data.cleanContent || newPostContent,
-        mediaUrls: newPostMediaUrl ? [newPostMediaUrl] : [],
+        mediaUrls: newPostMediaUrls,
         referenceUrl: newPostRefUrl ? newPostRefUrl : undefined,
         isOfficialAnnouncement: currentUser.role !== 'student' ? (data.isOfficialAnnouncement ?? newPostIsOfficial) : false,
         likes: 1,
@@ -569,7 +600,7 @@ export default function App() {
       }
 
       setNewPostContent('');
-      setNewPostMediaUrl('');
+      setNewPostMediaUrls([]);
       setNewPostRefUrl('');
       setIsNewPostOpen(false);
     } catch (err) {
@@ -583,7 +614,7 @@ export default function App() {
         campus: newPostCampus,
         category: newPostCategory,
         content: newPostContent,
-        mediaUrls: newPostMediaUrl ? [newPostMediaUrl] : [],
+        mediaUrls: newPostMediaUrls,
         referenceUrl: newPostRefUrl ? newPostRefUrl : undefined,
         isOfficialAnnouncement: false,
         likes: 1,
@@ -593,7 +624,7 @@ export default function App() {
       };
       setPosts([fallbackPost, ...posts]);
       setNewPostContent('');
-      setNewPostMediaUrl('');
+      setNewPostMediaUrls([]);
       setNewPostRefUrl('');
       setIsNewPostOpen(false);
     } finally {
@@ -1778,14 +1809,32 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Media Image / Photo (Optional)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Media Images / Photos (Optional · Max {currentUser?.role === 'club' ? 10 : 3})
+                </label>
                 <input 
-                  type="text" 
-                  placeholder="https://images.unsplash.com/..."
-                  value={newPostMediaUrl}
-                  onChange={(e) => setNewPostMediaUrl(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#3d3bf3]"
+                  type="file" 
+                  accept="image/jpeg, image/png" 
+                  multiple
+                  onChange={handleImageFilesChange}
+                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#ebeaff] file:text-[#3d3bf3] hover:file:bg-indigo-100 cursor-pointer"
                 />
+                {newPostMediaUrls.length > 0 && (
+                  <div className="mt-3 grid grid-cols-4 gap-2">
+                    {newPostMediaUrls.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <img src={url} alt="preview" className="w-full h-20 object-cover rounded-xl border border-indigo-100 shadow-sm" />
+                        <button 
+                          type="button"
+                          onClick={() => removeImageAt(idx)}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow-md opacity-80 hover:opacity-100"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
