@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bell, Search, Plus, Calendar, MessageSquare, Heart, Bookmark, Share2, 
   ShieldCheck, User, Sparkles, MapPin, Building2, BookOpen, Send, CheckCircle, 
@@ -239,7 +239,39 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'feed' | 'calendar' | 'clubs' | 'ai-assistant' | 'club-detail'>('feed');
   const [selectedClub, setSelectedClub] = useState<ClubAccount | null>(null);
-  const [followedClubIds, setFollowedClubIds] = useState<string[]>(['club-1', 'club-2']);
+  const [followedClubIds, setFollowedClubIds] = useState<string[]>(() => {
+    if (!currentUser) return ['club-1', 'club-2'];
+    const saved = localStorage.getItem(`mmu_keep_up_followed_${currentUser.id}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return ['club-1', 'club-2'];
+      }
+    }
+    return ['club-1', 'club-2'];
+  });
+
+  useEffect(() => {
+    if (currentUser) {
+      const saved = localStorage.getItem(`mmu_keep_up_followed_${currentUser.id}`);
+      if (saved) {
+        try {
+          setFollowedClubIds(JSON.parse(saved));
+        } catch (e) {
+          setFollowedClubIds(['club-1', 'club-2']);
+        }
+      } else {
+        setFollowedClubIds(['club-1', 'club-2']);
+      }
+    }
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`mmu_keep_up_followed_${currentUser.id}`, JSON.stringify(followedClubIds));
+    }
+  }, [followedClubIds, currentUser?.id]);
 
   const [selectedCampus, setSelectedCampus] = useState<'All' | 'Cyberjaya' | 'Melaka'>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
