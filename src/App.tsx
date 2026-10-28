@@ -1,14 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Bell, Search, Plus, Calendar, MessageSquare, Heart, Bookmark, Share2, 
   ShieldCheck, User, Sparkles, MapPin, Building2, BookOpen, Send, CheckCircle, 
-  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X
+  Clock, AlertCircle, Filter, Trash2, ArrowUpRight, GraduationCap, Users, X, ArrowRight
 } from 'lucide-react';
+
+type UserRole = 'student' | 'lecturer' | 'club' | 'outsider';
+
+interface UserProfile {
+  id: string;
+  name: string;
+  handle: string;
+  role: UserRole;
+  avatar: string;
+  verified: boolean;
+}
 
 interface Post {
   id: string;
   authorName: string;
-  authorRole: 'student' | 'club' | 'lecturer' | 'outsider';
+  authorRole: UserRole;
   authorAvatar: string;
   campus: 'Cyberjaya' | 'Melaka' | 'Both';
   category: 'Clubs & Events' | 'Academic' | 'Campus Life' | 'Marketplace';
@@ -128,9 +139,24 @@ const INITIAL_POSTS: Post[] = [
 ];
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem('mmu_keep_up_user');
+    return saved ? JSON.parse(saved) : {
+      id: 'usr_default',
+      name: 'Ahmad Zikri',
+      handle: '@ahmad_zikri',
+      role: 'student',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
+      verified: true
+    };
+  });
+
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [selectedRoleForReg, setSelectedRoleForReg] = useState<UserRole>('student');
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+
   const [activeTab, setActiveTab] = useState<'feed' | 'calendar' | 'clubs' | 'ai-assistant'>('feed');
-  const [currentUserRole, setCurrentUserRole] = useState<'student' | 'club' | 'lecturer' | 'outsider'>('student');
-  const [currentUserName, setCurrentUserName] = useState('Ahmad Zikri (FCI Student)');
   const [selectedCampus, setSelectedCampus] = useState<'All' | 'Cyberjaya' | 'Melaka'>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -167,12 +193,36 @@ export default function App() {
   // Comment input state per post
   const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
 
-  const handleRoleSwitch = (role: 'student' | 'club' | 'lecturer' | 'outsider') => {
-    setCurrentUserRole(role);
-    if (role === 'student') setCurrentUserName('Ahmad Zikri (FCI Student)');
-    else if (role === 'club') setCurrentUserName('GDSC Committee Lead');
-    else if (role === 'lecturer') setCurrentUserName('Dr. Sarah Lim (FCM Faculty)');
-    else setCurrentUserName('Guest Visitor');
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName.trim()) return;
+
+    const newUser: UserProfile = {
+      id: 'usr_' + Date.now(),
+      name: regName,
+      handle: '@' + regName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      role: selectedRoleForReg,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${regName}`,
+      verified: selectedRoleForReg === 'club' || selectedRoleForReg === 'lecturer' || selectedRoleForReg === 'student',
+    };
+
+    setCurrentUser(newUser);
+    localStorage.setItem('mmu_keep_up_user', JSON.stringify(newUser));
+    setShowAuthModal(false);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('mmu_keep_up_user');
+    setShowAuthModal(true);
+  };
+
+  const requireAuthAction = (action: () => void) => {
+    if (!currentUser || currentUser.role === 'outsider') {
+      setShowAuthModal(true);
+      return;
+    }
+    action();
   };
 
   const handleLike = (postId: string) => {
@@ -184,6 +234,10 @@ export default function App() {
   };
 
   const handleAddComment = (postId: string) => {
+    if (!currentUser || currentUser.role === 'outsider') {
+      setShowAuthModal(true);
+      return;
+    }
     const text = commentInputs[postId];
     if (!text || !text.trim()) return;
 
@@ -195,8 +249,8 @@ export default function App() {
             ...p.comments,
             {
               id: 'c-' + Date.now(),
-              authorName: currentUserName.split(' ')[0] + ' ' + currentUserName.split(' ')[1],
-              authorRole: currentUserRole,
+              authorName: currentUser.name,
+              authorRole: currentUser.role,
               content: text.trim(),
               timestamp: 'Just now'
             }
@@ -210,6 +264,10 @@ export default function App() {
   };
 
   const handleSyncEvent = (eventDetails: NonNullable<Post['eventDetails']>, clubName: string, campus: 'Cyberjaya' | 'Melaka' | 'Both') => {
+    if (!currentUser || currentUser.role === 'outsider') {
+      setShowAuthModal(true);
+      return;
+    }
     const newEvt: CampusEvent = {
       id: 'e-' + Date.now(),
       title: eventDetails.eventTitle,
@@ -229,11 +287,15 @@ export default function App() {
   };
 
   const handleAiAnalyzeAndPost = async () => {
+    if (!currentUser || currentUser.role === 'outsider') {
+      setShowAuthModal(true);
+      return;
+    }
     if (!newPostContent.trim()) return;
 
     // Role verification
-    if ((currentUserRole === 'student' || currentUserRole === 'outsider') && newPostIsOfficial) {
-      alert('Notice: Students and outsiders cannot publish Official Announcements. Your post will be published as standard.');
+    if (currentUser.role === 'student' && newPostIsOfficial) {
+      alert('Notice: Students cannot publish Official Announcements. Your post will be published as standard.');
       setNewPostIsOfficial(false);
     }
 
@@ -242,20 +304,20 @@ export default function App() {
       const res = await fetch('/api/gemini/analyze-post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawPostText: newPostContent, authorRole: currentUserRole })
+        body: JSON.stringify({ rawPostText: newPostContent, authorRole: currentUser.role })
       });
       const data = await res.json();
 
       const newPostObj: Post = {
         id: 'post-' + Date.now(),
-        authorName: currentUserName,
-        authorRole: currentUserRole,
-        authorAvatar: currentUserRole === 'club' ? '💻' : currentUserRole === 'lecturer' ? '👨‍🏫' : currentUserRole === 'student' ? '🎓' : '👤',
+        authorName: currentUser.name,
+        authorRole: currentUser.role,
+        authorAvatar: currentUser.role === 'club' ? '💻' : currentUser.role === 'lecturer' ? '👨‍🏫' : '🎓',
         campus: newPostCampus,
         category: newPostCategory,
         content: data.cleanContent || newPostContent,
         mediaUrls: newPostMediaUrl ? [newPostMediaUrl] : [],
-        isOfficialAnnouncement: currentUserRole !== 'student' && currentUserRole !== 'outsider' ? (data.isOfficialAnnouncement ?? newPostIsOfficial) : false,
+        isOfficialAnnouncement: currentUser.role !== 'student' ? (data.isOfficialAnnouncement ?? newPostIsOfficial) : false,
         likes: 1,
         bookmarks: 0,
         timestamp: 'Just now',
@@ -277,8 +339,8 @@ export default function App() {
       alert('Failed to publish post via AI moderator. Publishing standard post...');
       const fallbackPost: Post = {
         id: 'post-' + Date.now(),
-        authorName: currentUserName,
-        authorRole: currentUserRole,
+        authorName: currentUser.name,
+        authorRole: currentUser.role,
         authorAvatar: '🎓',
         campus: newPostCampus,
         category: newPostCategory,
@@ -322,7 +384,6 @@ export default function App() {
     }
   };
 
-  // Filtered posts
   const filteredPosts = posts.filter(post => {
     const matchesCampus = selectedCampus === 'All' || post.campus === selectedCampus || post.campus === 'Both';
     const matchesCategory = selectedCategory === 'All' || post.category === selectedCategory;
@@ -336,8 +397,95 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#ebeaff] text-slate-900 flex flex-col font-sans">
       
-      {/* TOP BAR CONTRACT: Exactly 3 zones separated by gap-8 */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-indigo-100 px-6 py-3.5 flex items-center justify-between gap-8">
+      {/* STREAMLINED AUTHENTICATION MODAL */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl border border-[#9694ff]/30 animate-in fade-in zoom-in duration-200">
+            <div className="text-center mb-6">
+              <span className="bg-[#ebeaff] text-[#3d3bf3] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                MMU KEEP UP SIGN IN
+              </span>
+              <h2 className="text-2xl font-black text-gray-900 mt-2">Get Started in Seconds</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Choose your account type and join the campus feed instantly.
+              </p>
+            </div>
+
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Select Account Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { role: 'student', label: '🎓 MMU Student', desc: 'Standard feed & threads' },
+                    { role: 'club', label: '🏆 Club / Society', desc: 'Announcements & 10 images' },
+                    { role: 'lecturer', label: '📚 Lecturer', desc: 'Verified faculty broadcast' },
+                    { role: 'outsider', label: '🌐 Guest / Outsider', desc: 'Read-only view' },
+                  ].map((item) => (
+                    <button
+                      type="button"
+                      key={item.role}
+                      onClick={() => setSelectedRoleForReg(item.role as UserRole)}
+                      className={`p-3 text-left rounded-xl border transition-all ${
+                        selectedRoleForReg === item.role
+                          ? 'border-[#3d3bf3] bg-[#ebeaff]/60 shadow-sm ring-1 ring-[#3d3bf3]'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-gray-900">{item.label}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{item.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  {selectedRoleForReg === 'club' ? 'Club / Society Name' : 'Full Name'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={selectedRoleForReg === 'club' ? 'e.g., Cyberjaya IT Society' : 'e.g., Ahmad Zikri'}
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder={selectedRoleForReg === 'club' ? 'club.it@mmu.edu.my' : 'username@student.mmu.edu.my'}
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#3d3bf3] focus:outline-none text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-[#3d3bf3] text-white font-bold rounded-xl shadow-lg hover:bg-[#3d3bf3]/90 transition-all flex items-center justify-center gap-2 mt-2"
+              >
+                Continue to Feed <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+
+            {currentUser && (
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="mt-3 w-full py-2 text-gray-500 hover:text-gray-800 text-xs font-semibold"
+              >
+                Cancel & Close
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TOP BAR CONTRACT: 3 Zones */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-indigo-100 px-6 py-3.5 flex items-center justify-between gap-8">
         
         {/* Zone 1: Brand Wordmark */}
         <div className="flex items-center gap-3 shrink-0">
@@ -354,7 +502,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Zone 2: Navigation Links (4-5 single-word/short items) */}
+        {/* Zone 2: Navigation Links */}
         <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-600">
           <button 
             onClick={() => setActiveTab('feed')}
@@ -383,25 +531,38 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Zone 3: Primary Action & Role Switcher */}
-        <div className="flex items-center gap-4 shrink-0">
-          {/* Role switcher dropdown / quick select */}
-          <div className="hidden sm:flex items-center gap-2 bg-[#ebeaff]/60 px-3 py-1.5 rounded-xl border border-indigo-200">
-            <span className="text-xs text-indigo-900 font-medium">Role:</span>
-            <select 
-              value={currentUserRole}
-              onChange={(e) => handleRoleSwitch(e.target.value as any)}
-              className="bg-transparent text-xs font-semibold text-[#3d3bf3] focus:outline-none cursor-pointer"
+        {/* Zone 3: User Profile & Primary Action */}
+        <div className="flex items-center gap-3 shrink-0">
+          {currentUser ? (
+            <div className="flex items-center gap-3 bg-[#ebeaff]/80 px-3.5 py-1.5 rounded-xl border border-indigo-200">
+              <img src={currentUser.avatar} alt="avatar" className="w-7 h-7 rounded-full bg-white border border-indigo-300" />
+              <div className="text-left hidden sm:block">
+                <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                  {currentUser.name}
+                  {currentUser.verified && <CheckCircle className="w-3 h-3 text-[#3d3bf3]" />}
+                </p>
+                <span className="text-[10px] uppercase bg-[#3d3bf3] text-white px-1.5 py-0.2 rounded font-bold">
+                  {currentUser.role}
+                </span>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="ml-2 text-xs text-red-600 font-bold hover:underline"
+              >
+                Switch
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="px-4 py-2 bg-[#3d3bf3] text-white text-xs font-bold rounded-xl shadow-md hover:bg-indigo-700"
             >
-              <option value="student">Student (Ahmad)</option>
-              <option value="club">Club Committee (GDSC)</option>
-              <option value="lecturer">Lecturer (Dr. Sarah)</option>
-              <option value="outsider">Outsider / Public</option>
-            </select>
-          </div>
+              Register / Login
+            </button>
+          )}
 
           <button 
-            onClick={() => setIsNewPostOpen(true)}
+            onClick={() => requireAuthAction(() => setIsNewPostOpen(true))}
             className="px-4 py-2 text-xs font-semibold text-white bg-[#3d3bf3] rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/30 whitespace-nowrap flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -652,7 +813,7 @@ export default function App() {
                       <div className="flex items-center gap-2 pt-2">
                         <input 
                           type="text" 
-                          placeholder="Write a supportive comment..." 
+                          placeholder={currentUser && currentUser.role !== 'outsider' ? "Write a supportive comment..." : "Sign in to comment..."}
                           value={commentInputs[post.id] || ''}
                           onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })}
                           onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment(post.id); }}
@@ -824,7 +985,7 @@ export default function App() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Create Campus Post</h3>
-                <p className="text-xs text-slate-500">Posting as <span className="font-semibold text-[#3d3bf3]">{currentUserName}</span> ({currentUserRole})</p>
+                <p className="text-xs text-slate-500">Posting as <span className="font-semibold text-[#3d3bf3]">{currentUser?.name}</span> ({currentUser?.role})</p>
               </div>
               <button onClick={() => setIsNewPostOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl">
                 <X className="w-5 h-5" />
@@ -881,7 +1042,7 @@ export default function App() {
                 />
               </div>
 
-              {currentUserRole !== 'student' && currentUserRole !== 'outsider' && (
+              {currentUser && currentUser.role !== 'student' && currentUser.role !== 'outsider' && (
                 <div className="flex items-center gap-2 pt-2">
                   <input 
                     type="checkbox" 
