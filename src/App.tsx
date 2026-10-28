@@ -423,45 +423,67 @@ export default function App() {
     if (post.eventDetails) return post.eventDetails;
 
     const content = post.content || '';
-    const lowerContent = content.toLowerCase();
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
 
-    const hasEventIndicators = 
-      lowerContent.includes('date') || 
-      lowerContent.includes('venue') || 
-      lowerContent.includes('time') || 
-      lowerContent.includes('event') || 
-      lowerContent.includes('workshop') ||
-      lowerContent.includes('hackathon') ||
-      lowerContent.includes('carnival') ||
-      /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(content) || 
-      /\d{4}-\d{2}-\d{2}/.test(content) || 
-      /jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i.test(content);
+    let extractedTitle = '';
+    let extractedDate = '';
+    let extractedVenue = '';
+    let extractedTime = '';
 
-    if (hasEventIndicators || post.authorRole === 'club' || post.category === 'Clubs & Events') {
-      let extractedDate = 'Upcoming';
-      let extractedVenue = 'MMU Campus';
-      let extractedTime = 'All Day';
+    for (const line of lines) {
+      const lower = line.toLowerCase();
+      if (lower.startsWith('date:') || lower.startsWith('date')) {
+        const val = line.replace(/^(date:?)\s*/i, '').trim();
+        if (val) extractedDate = val;
+      } else if (lower.startsWith('venue:') || lower.startsWith('location:') || lower.startsWith('venue') || lower.startsWith('location')) {
+        const val = line.replace(/^(venue:|location:?)\s*/i, '').trim();
+        if (val) extractedVenue = val;
+      } else if (lower.startsWith('time:') || lower.startsWith('time')) {
+        const val = line.replace(/^(time:?)\s*/i, '').trim();
+        if (val) extractedTime = val;
+      } else if (!extractedTitle && !lower.startsWith('date') && !lower.startsWith('venue') && !lower.startsWith('location') && !lower.startsWith('time')) {
+        extractedTitle = line;
+      }
+    }
 
+    if (!extractedDate) {
       const dateMatch = content.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{4}-\d{2}-\d{2})|([A-Za-z]+ \d{1,2},? \d{4})/);
-      if (dateMatch) {
-        extractedDate = dateMatch[0];
-      }
-
-      const venueMatch = content.match(/(venue|location|at|hall|lab|room):?\s*([^\.,\n]+)/i);
-      if (venueMatch && venueMatch[2]) {
+      if (dateMatch) extractedDate = dateMatch[0];
+    }
+    if (!extractedVenue) {
+      const venueMatch = content.match(/(venue|location|at):?\s*([^\.,\n]+)/i);
+      if (venueMatch && venueMatch[2] && !venueMatch[2].toLowerCase().includes('28/')) {
         extractedVenue = venueMatch[2].trim();
+      } else {
+        extractedVenue = 'Main Hall';
       }
-
+    }
+    if (!extractedTime) {
       const timeMatch = content.match(/(time|at):?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s*-\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)/i);
       if (timeMatch && timeMatch[2]) {
         extractedTime = timeMatch[2].trim();
+      } else {
+        extractedTime = '8:00 PM';
       }
+    }
 
+    const hasEventIndicators = 
+      extractedDate || 
+      extractedVenue || 
+      extractedTime || 
+      content.toLowerCase().includes('event') || 
+      content.toLowerCase().includes('workshop') ||
+      content.toLowerCase().includes('hackathon') ||
+      content.toLowerCase().includes('carnival') ||
+      post.authorRole === 'club' || 
+      post.category === 'Clubs & Events';
+
+    if (hasEventIndicators) {
       return {
-        eventTitle: post.content.slice(0, 50) + (post.content.length > 50 ? '...' : ''),
-        eventDate: extractedDate,
-        venue: extractedVenue,
-        time: extractedTime
+        eventTitle: extractedTitle || post.authorName + ' Event',
+        eventDate: extractedDate || 'Upcoming',
+        venue: extractedVenue || 'Main Hall',
+        time: extractedTime || '8:00 PM'
       };
     }
 
